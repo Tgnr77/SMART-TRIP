@@ -1,3 +1,47 @@
 <resources>
-    <string name="app_name">App_SMART-TRIP</string>
+    <string name="app_name">SMART TRIP</string>
+
+    <!-- Landing -->
+    <string name="landing_title">SMART TRIP</string>
+    <string name="landing_subtitle">Comparateur de vols intelligent\nTrouvez les meilleurs tarifs dans le monde</string>
+    <string name="btn_explore">Explorer les vols</string>
+    <string name="btn_login">Se connecter</string>
+    <string name="btn_register">Créer un compte</string>
+
+    <!-- Login -->
+    <string name="login_title">Connexion</string>
+    <string name="hint_email">Adresse email</string>
+    <string name="hint_password">Mot de passe</string>
+    <string name="btn_login_action">Se connecter</string>
+    <string name="login_no_account">Pas encore de compte ? S\'inscrire</string>
+
+    <!-- Register -->
+    <string name="register_title">Créer un compte</string>
+    <string name="hint_first_name">Prénom</string>
+    <string name="hint_last_name">Nom</string>
+    <string name="btn_register_action">S\'inscrire</string>
+    <string name="register_already_account">Déjà un compte ? Se connecter</string>
+
+    <!-- Search -->
+    <string name="search_title">Rechercher un vol</string>
+    <string name="hint_origin">Ville de départ (ex: CDG)</string>
+    <string name="hint_destination">Destination (ex: JFK)</string>
+    <string name="hint_departure_date">Date aller</string>
+    <string name="hint_return_date">Date retour (optionnel)</string>
+    <string name="btn_search">Rechercher</string>
+
+    <!-- Results -->
+    <string name="results_title">Résultats</string>
+    <string name="no_flights">Aucun vol trouvé</string>
+    <string name="btn_book">Réserver</string>
+    <string name="direct_flight">Direct</string>
+    <string name="loading">Chargement…</string>
+
+    <!-- Favorites -->
+    <string name="favorites_title">Mes favoris</string>
+    <string name="no_favorites">Aucun favori enregistré</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Mon profil</string>
+    <string name="btn_logout">Se déconnecter</string>
 </resources>

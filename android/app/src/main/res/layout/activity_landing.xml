@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/gradient_start"
+    android:gravity="center"
+    android:padding="32dp">
+
+    <!-- Logo / Icône avion -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="✈"
+        android:textSize="72sp"
+        android:textColor="@color/white"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Titre -->
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/landing_title"
+        android:textSize="40sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:letterSpacing="0.05"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Sous-titre -->
+    <TextView
+        android:id="@+id/tv_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Comparateur de vols intelligent\nTrouvez les meilleurs tarifs dans le monde"
+        android:textSize="14sp"
+        android:textColor="#B0C4DE"
+        android:gravity="center"
+        android:lineSpacingExtra="6dp"
+        android:layout_marginBottom="48dp" />
+
+    <!-- Bouton Explorer (plein) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_explore"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="@string/btn_explore"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:backgroundTint="@color/primary"
+        android:layout_marginBottom="12dp"
+        xmlns:app="http://schemas.android.com/apk/res-auto"/>
+
+    <!-- Bouton Connexion (outline) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_login"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="@string/btn_login"
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        app:strokeColor="@color/white"
+        android:layout_marginBottom="12dp"
+        xmlns:app="http://schemas.android.com/apk/res-auto"/>
+
+    <!-- Bouton Créer un compte (texte) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_register"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="@string/btn_register"
+        android:textSize="16sp"
+        android:textColor="#B0C4DE"
+        style="@style/Widget.Material3.Button.TextButton" />
+
+</LinearLayout>
