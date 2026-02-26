@@ -35,3 +35,11 @@ build/
 # Uploads
 uploads/
 temp/
+
+# Android
+android/.idea/
+android/.gradle/
+android/build/
+android/app/build/
+android/*.iml
+android/local.properties
