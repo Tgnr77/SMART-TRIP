@@ -135,17 +135,4 @@ exports.deleteAccount = async (req, res) => {
   }
 };
 
-// Auto-suppression du compte (pour comptes non vérifiés qui expirent côté app)
-exports.deleteMe = async (req, res) => {
-  try {
-    const userId = req.user.id;
 
-    await db.query('DELETE FROM users WHERE id = $1', [userId]);
-
-    logger.info(`Auto-suppression du compte non vérifié: ${userId}`);
-    res.json({ message: 'Compte supprimé' });
-  } catch (error) {
-    logger.error('Erreur lors de l\'auto-suppression du compte:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-};

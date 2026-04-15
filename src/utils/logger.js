@@ -33,33 +33,39 @@ const customFormat = winston.format.combine(
   })
 );
 
-// Créer le logger
-const logger = winston.createLogger({
-  levels: customLevels.levels,
-  level: process.env.LOG_LEVEL || 'info',
-  format: customFormat,
-  transports: [
-    // Console
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        customFormat
-      )
-    }),
-    // Fichier pour toutes les erreurs
+// Transports : toujours console, fichiers seulement en développement local
+// (en production / Railway, logs/ n'existe pas dans le repo)
+const transports = [
+  new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      customFormat
+    )
+  }),
+];
+
+if (process.env.NODE_ENV !== 'production') {
+  transports.push(
     new winston.transports.File({
       filename: path.join(__dirname, '../../logs/error.log'),
       level: 'error',
       maxsize: 5242880, // 5MB
       maxFiles: 5,
     }),
-    // Fichier pour tous les logs
     new winston.transports.File({
       filename: path.join(__dirname, '../../logs/combined.log'),
       maxsize: 5242880, // 5MB
       maxFiles: 5,
     })
-  ],
+  );
+}
+
+// Créer le logger
+const logger = winston.createLogger({
+  levels: customLevels.levels,
+  level: process.env.LOG_LEVEL || 'info',
+  format: customFormat,
+  transports,
 });
 
 module.exports = logger;

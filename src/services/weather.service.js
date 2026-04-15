@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 
 const API_KEY = process.env.OPENWEATHER_API_KEY;
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
@@ -31,7 +32,7 @@ const getCurrentWeather = async (lat, lon) => {
       weatherType: response.data.weather[0].main // Clear, Clouds, Rain, etc.
     };
   } catch (error) {
-    console.error('Erreur récupération météo:', error.message);
+    logger.error('Erreur récupération météo:', error.message);
     throw error;
   }
 };
@@ -55,7 +56,7 @@ const filterDestinationsByWeather = async (destinations, criteria) => {
       const weather = await getCurrentWeather(dest.lat, dest.lon);
       return { ...dest, weather };
     } catch (error) {
-      console.error(`Erreur météo pour ${dest.city}:`, error.message);
+      logger.error(`Erreur météo pour ${dest.city}:`, error.message);
       return null;
     }
   });
@@ -78,7 +79,7 @@ const filterDestinationsByWeather = async (destinations, criteria) => {
         case 'sunny':
           // Clair ou légèrement nuageux
           if (!['Clear', 'Clouds'].includes(wType)) return false;
-          if (wType === 'Clouds' && weather.description && weather.description.toLowerCase().includes('convert')) return false;
+          if (wType === 'Clouds' && weather.description && weather.description.toLowerCase().includes('overcast')) return false;
           break;
         case 'cloudy':
           if (!['Clouds', 'Mist', 'Fog', 'Haze', 'Dust', 'Sand', 'Smoke'].includes(wType)) return false;

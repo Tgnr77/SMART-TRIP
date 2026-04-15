@@ -76,6 +76,63 @@ async function runMigrations() {
       logger.warn("⚠️ Migration 003 introuvable, passage ignoré");
     }
 
+    // Migration 004a: Email verification
+    logger.info("📝 Migration 004a: Email verification...");
+    const migrationPath004a = path.join(__dirname, "migrations", "004_email_verification.sql");
+    if (fs.existsSync(migrationPath004a)) {
+      try {
+        const migration004a = fs.readFileSync(migrationPath004a, "utf8");
+        await db.query(migration004a);
+        logger.info("✅ Migration 004a terminée");
+      } catch (error) {
+        if (error.message.includes("already exists")) {
+          logger.info("⏭️  Migration 004a déjà appliquée, passage ignoré");
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      logger.warn("⚠️ Migration 004a introuvable, passage ignoré");
+    }
+
+    // Migration 004b: Favorites
+    logger.info("📝 Migration 004b: Favorites...");
+    const migrationPath004b = path.join(__dirname, "migrations", "004_favorites.sql");
+    if (fs.existsSync(migrationPath004b)) {
+      try {
+        const migration004b = fs.readFileSync(migrationPath004b, "utf8");
+        await db.query(migration004b);
+        logger.info("✅ Migration 004b terminée");
+      } catch (error) {
+        if (error.message.includes("already exists")) {
+          logger.info("⏭️  Migration 004b déjà appliquée, passage ignoré");
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      logger.warn("⚠️ Migration 004b introuvable, passage ignoré");
+    }
+
+    // Migration 005: Search history
+    logger.info("📝 Migration 005: Search history...");
+    const migrationPath005 = path.join(__dirname, "migrations", "005_search_history.sql");
+    if (fs.existsSync(migrationPath005)) {
+      try {
+        const migration005 = fs.readFileSync(migrationPath005, "utf8");
+        await db.query(migration005);
+        logger.info("✅ Migration 005 terminée");
+      } catch (error) {
+        if (error.message.includes("already exists")) {
+          logger.info("⏭️  Migration 005 déjà appliquée, passage ignoré");
+        } else {
+          throw error;
+        }
+      }
+    } else {
+      logger.warn("⚠️ Migration 005 introuvable, passage ignoré");
+    }
+
     logger.info("✅ Toutes les migrations terminées avec succès !");
     logger.info("📊 Base de données à jour");
 

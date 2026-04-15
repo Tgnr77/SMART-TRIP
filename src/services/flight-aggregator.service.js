@@ -1,5 +1,4 @@
 const amadeusService = require("./amadeus.service");
-const skyscannerService = require("./skyscanner.service");
 const aiService = require("./ai.service");
 const logger = require("../utils/logger");
 const pool = require("../database/connection");

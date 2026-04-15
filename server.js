@@ -27,18 +27,21 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(compression());
 
-// CORS - Autorise le frontend web + les apps mobiles (Android/iOS n'envoient pas d'origin)
+// CORS - apps mobiles (Android/iOS) n'envoient pas d'Origin → toujours autorisé
+const corsOriginEnv = process.env.CORS_ORIGIN;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  process.env.CORS_ORIGIN,
-].filter(Boolean);
+  corsOriginEnv,
+].filter(o => o && o !== '*');
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Pas d'origin = app mobile (Android/iOS) ou Postman → toujours autorisé
+      // Pas d'origin = app mobile (Android/iOS) ou Postman → autorisé
       if (!origin) return callback(null, true);
+      // CORS_ORIGIN=* → tout autoriser
+      if (corsOriginEnv === '*') return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         callback(null, true);

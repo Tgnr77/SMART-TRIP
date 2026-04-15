@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const logger = require('../utils/logger');
 const { filterDestinationsByWeather } = require('../services/weather.service');
 const { DESTINATIONS } = require('../utils/destinations');
 
@@ -87,7 +88,7 @@ router.post('/', async (req, res) => {
       count: filteredDestinations.length
     });
   } catch (error) {
-    console.error('Erreur route inspiration:', error);
+    logger.error('Erreur route inspiration:', error.message);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la recherche de destinations',
