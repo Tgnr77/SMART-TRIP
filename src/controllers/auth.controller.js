@@ -119,35 +119,48 @@ exports.login = async (req, res) => {
 
     // Vérifier si l'email est vérifié
     if (!user.email_verified) {
-      // Générer un nouveau code de vérification
-      const verificationCode = emailService.generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      // Supprimer les anciens codes pour cet utilisateur
-      await db.query(
-        `DELETE FROM email_verifications WHERE user_id = $1`,
+      // Vérifier si un code valide existe déjà (non expiré)
+      const existingCode = await db.query(
+        `SELECT code, expires_at FROM email_verifications
+         WHERE user_id = $1 AND verified = false AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1`,
         [user.id]
       );
 
-      // Insérer le nouveau code
-      await db.query(
-        `INSERT INTO email_verifications (user_id, email, code, expires_at)
-         VALUES ($1, $2, $3, $4)`,
-        [user.id, email, verificationCode, expiresAt]
-      );
+      let secondsRemaining;
 
-      // Renvoyer l'email de vérification
-      emailService.sendVerificationEmail(email, verificationCode, user.first_name).catch(err => {
-        logger.error('Erreur envoi email de vérification lors du login:', err);
-      });
+      if (existingCode.rows.length > 0) {
+        // Code valide existant : on le réutilise sans envoyer un nouvel email
+        const expiresAt = existingCode.rows[0].expires_at;
+        secondsRemaining = Math.max(1, Math.floor((new Date(expiresAt) - Date.now()) / 1000));
+        logger.info(`Code de vérification existant réutilisé pour: ${email} (${secondsRemaining}s restantes)`);
+      } else {
+        // Aucun code valide : générer un nouveau et envoyer l'email
+        const verificationCode = emailService.generateVerificationCode();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+        secondsRemaining = 300;
 
-      logger.info(`Tentative de connexion avec compte non vérifié: ${email}`);
+        await db.query(`DELETE FROM email_verifications WHERE user_id = $1`, [user.id]);
+        await db.query(
+          `INSERT INTO email_verifications (user_id, email, code, expires_at)
+           VALUES ($1, $2, $3, $4)`,
+          [user.id, email, verificationCode, expiresAt]
+        );
 
-      return res.status(403).json({ 
+        emailService.sendVerificationEmail(email, verificationCode, user.first_name).catch(err => {
+          logger.error('Erreur envoi email de vérification lors du login:', err);
+        });
+        logger.info(`Nouveau code de vérification envoyé lors du login: ${email}`);
+      }
+
+      return res.status(403).json({
         error: "Email non vérifié",
         requiresVerification: true,
         email: email,
-        message: "Un nouveau code de vérification a été envoyé à votre email"
+        secondsRemaining,
+        message: secondsRemaining < 300
+          ? "Utilisez le code de vérification déjà envoyé à votre email"
+          : "Un nouveau code de vérification a été envoyé à votre email"
       });
     }
 
