@@ -25,6 +25,42 @@ exports.testAmadeusAuth = async (req, res) => {
   }
 };
 
+// Diagnostic : test de recherche Amadeus directe (retourne l'erreur brute au lieu du mock)
+exports.testAmadeusSearch = async (req, res) => {
+  const { origin = "CDG", destination = "LHR", departureDate = "2026-06-01" } = req.query;
+  try {
+    const token = await amadeusService.getAccessToken();
+    const axios = require("axios");
+    const response = await axios.get(
+      `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          originLocationCode: origin,
+          destinationLocationCode: destination,
+          departureDate,
+          adults: 1,
+          travelClass: "ECONOMY",
+          nonStop: false,
+          max: 10,
+        },
+      }
+    );
+    res.json({
+      success: true,
+      count: response.data.data?.length || 0,
+      firstFlight: response.data.data?.[0] || null,
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      httpStatus: error.response?.status,
+      amadeusError: error.response?.data,
+    });
+  }
+};
+
 // Recherche intelligente de vols avec IA
 exports.searchFlights = async (req, res) => {
   try {

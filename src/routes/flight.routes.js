@@ -8,6 +8,7 @@ const {
 
 // Diagnostic Amadeus (sans authentification requise)
 router.get("/test-auth", flightController.testAmadeusAuth);
+router.get("/test-search", flightController.testAmadeusSearch);
 
 // Recherche intelligente de vols avec IA (accessible sans authentification)
 router.post("/search", optionalAuth, flightController.searchFlights);
