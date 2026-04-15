@@ -1,27 +1,38 @@
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
-// Configuration du transporteur email
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
+// Générer un code de vérification à 6 chiffres
+exports.generateVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Transporter SMTP Brevo (utilise les credentials SMTP du .env)
+const createTransporter = () => nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587', 10),
+  secure: false, // STARTTLS
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
   }
 });
 
-// Générer un code de vérification à 6 chiffres
-exports.generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+// Envoyer un email via SMTP Brevo
+const sendBrevoEmail = async ({ to, subject, html }) => {
+  const transporter = createTransporter();
+  const result = await transporter.sendMail({
+    from: `"SMART TRIP" <${process.env.SMTP_FROM}>`,
+    to,
+    subject,
+    html
+  });
+  return result;
 };
 
 // Envoyer un email de vérification
 exports.sendVerificationEmail = async (email, code, firstName) => {
   try {
-    const mailOptions = {
-      from: `"SMART TRIP" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    await sendBrevoEmail({
       to: email,
       subject: 'Vérification de votre compte SMART TRIP',
       html: `
@@ -31,20 +42,17 @@ exports.sendVerificationEmail = async (email, code, firstName) => {
           <div style="background-color: #f3f4f6; padding: 20px; text-align: center; margin: 20px 0;">
             <h1 style="color: #2563eb; font-size: 32px; letter-spacing: 5px; margin: 0;">${code}</h1>
           </div>
-          <p>Ce code est valable pendant 15 minutes.</p>
+          <p>Ce code est valable pendant <strong>5 minutes</strong>.</p>
           <p>Si vous n'avez pas créé de compte, ignorez cet email.</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
           <p style="color: #6b7280; font-size: 12px;">SMART TRIP - Votre comparateur de vols intelligent</p>
         </div>
       `
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    logger.info(`Email de vérification envoyé à ${email} - MessageID: ${info.messageId}`);
+    });
+    logger.info(`Email de vérification envoyé à ${email} via Brevo API`);
     return true;
   } catch (error) {
-    logger.error(`Erreur envoi email à ${email}:`, error.message);
-    logger.error('Détails erreur:', error);
+    logger.error(`Erreur envoi email à ${email}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -53,9 +61,8 @@ exports.sendVerificationEmail = async (email, code, firstName) => {
 exports.sendPasswordResetEmail = async (email, token, firstName) => {
   try {
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
-    
-    const mailOptions = {
-      from: `"SMART TRIP" <${process.env.SMTP_USER}>`,
+
+    await sendBrevoEmail({
       to: email,
       subject: 'Réinitialisation de votre mot de passe SMART TRIP',
       html: `
@@ -76,13 +83,11 @@ exports.sendPasswordResetEmail = async (email, token, firstName) => {
           <p style="color: #6b7280; font-size: 12px;">SMART TRIP - Votre comparateur de vols intelligent</p>
         </div>
       `
-    };
-
-    await transporter.sendMail(mailOptions);
-    logger.info(`Email de réinitialisation envoyé à ${email}`);
+    });
+    logger.info(`Email de réinitialisation envoyé à ${email} via Brevo API`);
     return true;
   } catch (error) {
-    logger.error(`Erreur envoi email à ${email}:`, error);
+    logger.error(`Erreur envoi email reset à ${email}:`, error.response?.data || error.message);
     return false;
   }
 };

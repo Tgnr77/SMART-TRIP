@@ -39,8 +39,12 @@ const getCurrentWeather = async (lat, lon) => {
 /**
  * Filtrer les destinations selon les critères météo
  * @param {Array} destinations - Liste des destinations avec lat/lon
- * @param {Object} criteria - Critères de filtrage
- * @returns {Promise<Array>} Destinations filtrées
+ * @param {Object} criteria - Critères de filtrage (weather, temperature)
+ * @returns {Promise<Array>} Destinations filtrées avec données météo
+ *
+ * Valeurs attendues (alignées avec l'app Android) :
+ *   weather     : 'sunny' | 'cloudy' | 'rainy' | 'snowy' | 'stormy'
+ *   temperature : 'tropical' | 'hot' | 'mild' | 'cool' | 'cold'
  */
 const filterDestinationsByWeather = async (destinations, criteria) => {
   // Limiter à 50 destinations pour obtenir plus de variété
@@ -64,29 +68,43 @@ const filterDestinationsByWeather = async (destinations, criteria) => {
     return destinationsWithWeather;
   }
 
-  // Filtrer selon les critères (avec logique plus permissive)
   return destinationsWithWeather.filter(dest => {
     const { weather } = dest;
-    
-    // Filtre météo (sunny, mild, cold)
+
+    // ── Filtre météo — valeurs alignées avec l'app Android ───────────────
     if (criteria.weather) {
-      if (criteria.weather === 'sunny' && !['Clear', 'Clouds'].includes(weather.weatherType)) {
-        return false;
-      }
-      if (criteria.weather === 'mild' && ['Rain', 'Snow', 'Thunderstorm'].includes(weather.weatherType)) {
-        return false;
-      }
-      if (criteria.weather === 'cold' && weather.temperature > 15) {
-        return false;
+      const wType = weather.weatherType; // Clear, Clouds, Rain, Drizzle, Snow, Thunderstorm…
+      switch (criteria.weather) {
+        case 'sunny':
+          // Clair ou légèrement nuageux
+          if (!['Clear', 'Clouds'].includes(wType)) return false;
+          if (wType === 'Clouds' && weather.description && weather.description.toLowerCase().includes('convert')) return false;
+          break;
+        case 'cloudy':
+          if (!['Clouds', 'Mist', 'Fog', 'Haze', 'Dust', 'Sand', 'Smoke'].includes(wType)) return false;
+          break;
+        case 'rainy':
+          if (!['Rain', 'Drizzle', 'Squall'].includes(wType)) return false;
+          break;
+        case 'snowy':
+          if (wType !== 'Snow') return false;
+          break;
+        case 'stormy':
+          if (!['Thunderstorm', 'Tornado'].includes(wType)) return false;
+          break;
       }
     }
 
-    // Filtre température (priorité sur le filtre météo si les deux sont définis)
+    // ── Filtre température — valeurs alignées avec l'app Android ─────────
     if (criteria.temperature) {
-      if (criteria.temperature === 'hot' && weather.temperature < 25) return false;
-      if (criteria.temperature === 'warm' && (weather.temperature < 15 || weather.temperature > 28)) return false;
-      if (criteria.temperature === 'cool' && (weather.temperature < 5 || weather.temperature > 18)) return false;
-      if (criteria.temperature === 'cold' && weather.temperature > 5) return false;
+      const t = weather.temperature;
+      switch (criteria.temperature) {
+        case 'tropical': if (t < 28) return false; break;
+        case 'hot':      if (t < 20 || t >= 28) return false; break;
+        case 'mild':     if (t < 12 || t >= 20) return false; break;
+        case 'cool':     if (t < 5  || t >= 12) return false; break;
+        case 'cold':     if (t >= 5) return false; break;
+      }
     }
 
     return true;

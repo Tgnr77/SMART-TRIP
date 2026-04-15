@@ -49,7 +49,7 @@ exports.register = async (req, res) => {
 
     // Générer et envoyer le code de vérification
     const verificationCode = emailService.generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     await db.query(
       `INSERT INTO email_verifications (user_id, email, code, expires_at)
@@ -121,7 +121,7 @@ exports.login = async (req, res) => {
     if (!user.email_verified) {
       // Générer un nouveau code de vérification
       const verificationCode = emailService.generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       // Supprimer les anciens codes pour cet utilisateur
       await db.query(
@@ -415,7 +415,7 @@ exports.resendVerificationCode = async (req, res) => {
 
     // Générer un nouveau code
     const verificationCode = emailService.generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
     await db.query(
       `INSERT INTO email_verifications (user_id, email, code, expires_at)

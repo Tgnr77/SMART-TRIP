@@ -2,16 +2,27 @@ const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
 // Configuration de la connexion PostgreSQL
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'smarttrip_dev',
-  user: process.env.DB_USER || 'smarttrip_user',
-  password: process.env.DB_PASSWORD || 'smarttrip_password',
-  max: 20, // Maximum de connexions dans le pool
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+// Railway fournit DATABASE_URL ; en local on utilise les variables individuelles
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }, // requis par Railway
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'smarttrip_dev',
+      user: process.env.DB_USER || 'smarttrip_user',
+      password: process.env.DB_PASSWORD || 'smarttrip_password',
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+
+const pool = new Pool(poolConfig);
 
 // Gestion des erreurs du pool
 pool.on('error', (err) => {
