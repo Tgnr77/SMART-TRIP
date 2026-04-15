@@ -112,48 +112,6 @@ class AmadeusService {
       return this.getMockFlightData(searchParams);
     }
   }
-    logger.info(`Search: ${origin} -> ${destination} on ${departureDate}`);
-
-    try {
-      const params = {
-        originLocationCode: origin,
-        destinationLocationCode: destination,
-        departureDate,
-        adults,
-        travelClass: travelClass.toUpperCase(),
-        nonStop,
-        max: Math.min(maxResults, 50), // Limiter à 50 pour l'environnement test
-        currencyCode: "EUR",
-      };
-
-      if (returnDate) {
-        params.returnDate = returnDate;
-      }
-
-      logger.info(`Params: ${JSON.stringify(params)}`);
-
-      const response = await axios.get(
-        `${this.baseURL}/v2/shopping/flight-offers`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params,
-        }
-      );
-
-      const offers = response.data.data || [];
-      logger.info(`Amadeus: found ${offers.length} offers`);
-
-      return this.formatFlightOffers(offers);
-    } catch (error) {
-      logger.error("=== AMADEUS API ERROR ===");
-      logger.error(`Status: ${error.response?.status}`);
-      logger.error(`Data: ${JSON.stringify(error.response?.data)}`);
-      logger.error(`Message: ${error.message}`);
-      // Fallback vers les données de démonstration
-      logger.warn("Falling back to demo data (Amadeus test env limitation)");
-      return this.getMockFlightData(searchParams);
-    }
-  }
 
   /**
    * Obtenir les prédictions de prix
