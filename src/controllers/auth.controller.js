@@ -134,34 +134,25 @@ exports.login = async (req, res) => {
         const expiresAt = existingCode.rows[0].expires_at;
         secondsRemaining = Math.max(1, Math.floor((new Date(expiresAt) - Date.now()) / 1000));
         logger.info(`Code de vérification existant réutilisé pour: ${email} (${secondsRemaining}s restantes)`);
-      } else {
-        // Aucun code valide : générer un nouveau et envoyer l'email
-        const verificationCode = emailService.generateVerificationCode();
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-        secondsRemaining = 300;
 
-        await db.query(`DELETE FROM email_verifications WHERE user_id = $1`, [user.id]);
-        await db.query(
-          `INSERT INTO email_verifications (user_id, email, code, expires_at)
-           VALUES ($1, $2, $3, $4)`,
-          [user.id, email, verificationCode, expiresAt]
-        );
-
-        emailService.sendVerificationEmail(email, verificationCode, user.first_name).catch(err => {
-          logger.error('Erreur envoi email de vérification lors du login:', err);
+        return res.status(403).json({
+          error: "Email non vérifié",
+          requiresVerification: true,
+          email: email,
+          secondsRemaining,
+          message: "Utilisez le code de vérification déjà envoyé à votre email"
         });
-        logger.info(`Nouveau code de vérification envoyé lors du login: ${email}`);
-      }
+      } else {
+        // Aucun code valide : le délai a expiré, on supprime le compte définitivement
+        await db.query(`DELETE FROM users WHERE id = $1`, [user.id]);
+        logger.info(`Compte supprimé (code expiré, jamais vérifié): ${email}`);
 
-      return res.status(403).json({
-        error: "Email non vérifié",
-        requiresVerification: true,
-        email: email,
-        secondsRemaining,
-        message: secondsRemaining < 300
-          ? "Utilisez le code de vérification déjà envoyé à votre email"
-          : "Un nouveau code de vérification a été envoyé à votre email"
-      });
+        return res.status(410).json({
+          error: "Code de vérification expiré",
+          accountDeleted: true,
+          message: "Votre code de vérification a expiré. Votre compte a été supprimé, veuillez vous réinscrire."
+        });
+      }
     }
 
     // Générer un token JWT
