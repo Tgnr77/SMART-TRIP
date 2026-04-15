@@ -11,8 +11,29 @@ exports.testAmadeusAuth = async (req, res) => {
   try {
     amadeusService.accessToken = null;
     amadeusService.tokenExpiry = null;
-    const token = await amadeusService.getAccessToken();
-    res.json({ success: true, message: "Amadeus auth OK", keyPrefix, tokenLength: token?.length });
+
+    // Appel direct à l'API OAuth pour voir la réponse complète
+    const axios = require("axios");
+    const response = await axios.post(
+      `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v1/security/oauth2/token`,
+      new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: process.env.AMADEUS_API_KEY,
+        client_secret: process.env.AMADEUS_API_SECRET,
+      }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+
+    const token = response.data.access_token;
+    res.json({
+      success: true,
+      keyPrefix,
+      tokenLength: token?.length,
+      tokenFull: token, // ← voir le token complet
+      expires_in: response.data.expires_in,
+      token_type: response.data.token_type,
+      application_name: response.data.application_name,
+    });
   } catch (error) {
     res.json({ success: false, error: error.message, amadeusDetail: error.response?.data, keyPrefix });
   }
