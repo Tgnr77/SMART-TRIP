@@ -95,7 +95,17 @@ class FlightAggregatorService {
       };
     } catch (error) {
       logger.error("Smart search error:", error.message);
-      throw error;
+      // Retourner tableau vide avec message d'erreur (pas de mock, pas de 500)
+      return {
+        flights: [],
+        meta: {
+          totalResults: 0,
+          sources: ["amadeus"],
+          searchTime: Date.now() - startTime,
+          timestamp: new Date().toISOString(),
+          error: error.response?.data?.errors?.[0]?.detail || error.message,
+        },
+      };
     }
   }
 

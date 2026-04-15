@@ -118,12 +118,11 @@ class AmadeusService {
       if (error.response) {
         logger.error(`HTTP Status: ${error.response.status}`);
         logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-        logger.error(`Response headers: ${JSON.stringify(error.response.headers)}`);
       }
 
-      // Forcer mock si pas de clé valide OU toute erreur réseau/API
-      logger.warn("Using Amadeus mock data fallback");
-      return this.getMockFlightData(searchParams);
+      // Remonter l'erreur pour que l'aggregateur retourne un tableau vide propre
+      // (pas de mock — les données fictives induisent en erreur l'utilisateur)
+      throw error;
     }
   }
 
