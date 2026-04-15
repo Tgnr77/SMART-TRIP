@@ -41,7 +41,7 @@ exports.testAmadeusAuth = async (req, res) => {
 
 // Diagnostic : test de recherche Amadeus directe
 exports.testAmadeusSearch = async (req, res) => {
-  const { origin = "NCE", destination = "MAD", departureDate = "2026-04-28" } = req.query;
+  const { origin = "NCE", destination = "MAD", departureDate = "2026-06-01" } = req.query;
   
   try {
     amadeusService.accessToken = null;
@@ -49,24 +49,26 @@ exports.testAmadeusSearch = async (req, res) => {
     const token = await amadeusService.getAccessToken();
     const axios = require("axios");
     const base = process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com";
+    const url = `${base}/v2/shopping/flight-offers`;
+    const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+    const getParams = { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1 };
+    const postBody = { originDestinations: [{ id: "1", originLocationCode: origin, destinationLocationCode: destination, departureDateTimeRange: { date: departureDate } }], travelers: [{ id: "1", travelerType: "ADULT" }], sources: ["GDS"], searchCriteria: { maxFlightOffers: 5 } };
 
-    const tests = [
-      { label: "minimal", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1 } },
-      { label: "with_max5", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, max: 5 } },
-      { label: "with_class", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, travelClass: "ECONOMY" } },
-      { label: "with_nonstop_false", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, nonStop: false } },
-    ];
-
-    const results = {};
-    for (const t of tests) {
-      try {
-        const r = await axios.get(`${base}/v2/shopping/flight-offers`, { headers: { Authorization: `Bearer ${token}` }, params: t.params });
-        results[t.label] = { ok: true, count: r.data.data?.length };
-      } catch (e) {
-        results[t.label] = { ok: false, status: e.response?.status, code: e.response?.data?.errors?.[0]?.code };
-      }
+    let getResult, postResult;
+    try {
+      const r = await axios.get(url, { headers, params: getParams });
+      getResult = { ok: true, count: r.data.data?.length };
+    } catch (e) {
+      getResult = { ok: false, status: e.response?.status, code: e.response?.data?.errors?.[0]?.code };
     }
-    res.json({ results });
+    try {
+      const r = await axios.post(url, postBody, { headers });
+      postResult = { ok: true, count: r.data.data?.length };
+    } catch (e) {
+      postResult = { ok: false, status: e.response?.status, code: e.response?.data?.errors?.[0]?.code, detail: e.response?.data?.errors?.[0]?.detail };
+    }
+
+    res.json({ GET: getResult, POST: postResult });
   } catch (authErr) {
     res.json({ authError: authErr.message });
   }
