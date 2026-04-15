@@ -32,46 +32,24 @@ exports.testAmadeusAuth = async (req, res) => {
 
 // Diagnostic : test de recherche Amadeus directe (retourne l'erreur brute au lieu du mock)
 exports.testAmadeusSearch = async (req, res) => {
-  const { origin = "CDG", destination = "LHR", departureDate = "2026-06-01" } = req.query;
+  const { origin = "MAD", destination = "BCN", departureDate = "2026-05-01" } = req.query;
   try {
-    // Force un token frais
+    // Force cache clear + test via SDK
     amadeusService.accessToken = null;
     amadeusService.tokenExpiry = null;
-    const token = await amadeusService.getAccessToken();
-    const axios = require("axios");
 
-    // Test 1 : minimal (required only)
-    let result1, result2;
-    try {
-      const r1 = await axios.get(
-        `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1 },
-        }
-      );
-      result1 = { success: true, count: r1.data.data?.length };
-    } catch (e) {
-      result1 = { success: false, status: e.response?.status, error: e.response?.data?.errors?.[0] };
-    }
+    const offers = await amadeusService.searchFlights({
+      origin, destination, departureDate, adults: 1,
+      travelClass: "ECONOMY", nonStop: false, maxResults: 5,
+    });
 
-    // Test 2 : avec travelClass et nonStop
-    try {
-      const r2 = await axios.get(
-        `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, travelClass: "ECONOMY", nonStop: false, max: 10 },
-        }
-      );
-      result2 = { success: true, count: r2.data.data?.length };
-    } catch (e) {
-      result2 = { success: false, status: e.response?.status, error: e.response?.data?.errors?.[0] };
-    }
-
-    res.json({ tokenLength: token?.length, minimal: result1, withOptions: result2 });
+    res.json({ success: true, count: offers.length, first: offers[0] || null });
   } catch (error) {
-    res.json({ success: false, error: error.message, amadeusError: error.response?.data });
+    res.json({
+      success: false,
+      error: error.message,
+      sdkError: error.description || error.response?.result,
+    });
   }
 };
 

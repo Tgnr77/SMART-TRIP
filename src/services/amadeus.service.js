@@ -1,4 +1,5 @@
 const axios = require("axios");
+const Amadeus = require("amadeus");
 const logger = require("../utils/logger");
 
 /**
@@ -11,15 +12,21 @@ class AmadeusService {
     this.apiSecret = process.env.AMADEUS_API_SECRET;
     this.baseURL =
       process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com";
+    // SDK officiel Amadeus
+    this.sdk = new Amadeus({
+      clientId: this.apiKey,
+      clientSecret: this.apiSecret,
+      hostname: this.baseURL.replace("https://", "").replace("/", ""),
+    });
+    // Fallback axios (pour test-auth uniquement)
     this.accessToken = null;
     this.tokenExpiry = null;
   }
 
   /**
-   * Obtenir un token d'accès OAuth2
+   * Obtenir un token d'accès OAuth2 (utilisé uniquement par les endpoints de diagnostic)
    */
   async getAccessToken() {
-    // Vérifier si le token est encore valide
     if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
@@ -40,7 +47,6 @@ class AmadeusService {
       );
 
       this.accessToken = response.data.access_token;
-      // Token expire dans 1800s (30 min), on le rafraîchit 5 min avant
       this.tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
 
       logger.info("Amadeus access token obtained");
@@ -55,7 +61,7 @@ class AmadeusService {
   }
 
   /**
-   * Rechercher des offres de vols
+   * Rechercher des offres de vols via le SDK officiel Amadeus
    * @param {Object} searchParams - Paramètres de recherche
    * @returns {Promise<Array>} - Liste des offres de vols
    */
@@ -68,60 +74,44 @@ class AmadeusService {
       adults = 1,
       travelClass = "ECONOMY",
       nonStop = false,
-      maxResults = 250,
+      maxResults = 50,
     } = searchParams;
 
-    logger.info("=== AMADEUS API REQUEST ===");
-    logger.info(`URL: ${this.baseURL}/v2/shopping/flight-offers`);
-    logger.info(`Raw searchParams: ${JSON.stringify(searchParams)}`);
+    logger.info("=== AMADEUS SDK REQUEST ===");
+    logger.info(`Search: ${origin} -> ${destination} on ${departureDate}`);
 
     try {
-      const token = await this.getAccessToken();
-
       const params = {
         originLocationCode: origin,
         destinationLocationCode: destination,
         departureDate,
         adults,
-        travelClass,
+        travelClass: travelClass.toUpperCase(),
         nonStop,
-        max: maxResults,
+        max: Math.min(maxResults, 50), // Limiter à 50 pour l'environnement test
+        currencyCode: "EUR",
       };
 
       if (returnDate) {
         params.returnDate = returnDate;
       }
 
-      logger.info(`Params to send: ${JSON.stringify(params, null, 2)}`);
+      logger.info(`Params: ${JSON.stringify(params)}`);
 
-      const response = await axios.get(
-        `${this.baseURL}/v2/shopping/flight-offers`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          params,
-        }
-      );
+      const response = await this.sdk.shopping.flightOffersSearch.get(params);
 
-      logger.info(
-        `Amadeus flight search: ${origin} -> ${destination}, found ${
-          response.data.data?.length || 0
-        } offers`
-      );
+      const offers = response.data || [];
+      logger.info(`Amadeus SDK: found ${offers.length} offers`);
 
-      return this.formatFlightOffers(response.data.data || []);
+      return this.formatFlightOffers(offers);
     } catch (error) {
-      logger.error("=== AMADEUS API ERROR ===");
-      logger.error(`Error message: ${error.message}`);
-      
-      if (error.response) {
-        logger.error(`HTTP Status: ${error.response.status}`);
-        logger.error(`Response data: ${JSON.stringify(error.response.data)}`);
-      }
+      logger.error("=== AMADEUS SDK ERROR ===");
+      logger.error(`Response code: ${error.response?.statusCode}`);
+      logger.error(`Response body: ${JSON.stringify(error.response?.result)}`);
+      logger.error(`Error description: ${error.description}`);
+      logger.error(`Error: ${error.message || JSON.stringify(error)}`);
 
-      // Remonter l'erreur pour que l'aggregateur retourne un tableau vide propre
-      // (pas de mock — les données fictives induisent en erreur l'utilisateur)
+      // Remonter l'erreur — pas de mock
       throw error;
     }
   }
