@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const https = require('https');
 const logger = require('../utils/logger');
 
 // Générer un code de vérification à 6 chiffres
@@ -6,36 +6,56 @@ exports.generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Transporter SMTP Brevo (utilise les credentials SMTP du .env)
-const createTransporter = () => nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: false, // STARTTLS
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
+// Envoyer un email via Brevo HTTP REST API (évite le blocage du port 587 sur Railway)
+const sendBrevoEmail = (to, subject, htmlContent, toName) => {
+  return new Promise((resolve, reject) => {
+    const apiKey = process.env.BREVO_API_KEY || process.env.SMTP_PASS;
+    const from = process.env.SMTP_FROM || 'noreply@smarttrip.app';
 
-// Envoyer un email via SMTP Brevo
-const sendBrevoEmail = async ({ to, subject, html }) => {
-  const transporter = createTransporter();
-  const result = await transporter.sendMail({
-    from: `"SMART TRIP" <${process.env.SMTP_FROM}>`,
-    to,
-    subject,
-    html
+    const body = JSON.stringify({
+      sender: { name: 'SMART TRIP', email: from },
+      to: [{ email: to, name: toName || to }],
+      subject,
+      htmlContent
+    });
+
+    const options = {
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(`Brevo API ${res.statusCode}: ${data}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(new Error('Brevo API timeout')); });
+    req.write(body);
+    req.end();
   });
-  return result;
 };
 
 // Envoyer un email de vérification
 exports.sendVerificationEmail = async (email, code, firstName) => {
   try {
-    await sendBrevoEmail({
-      to: email,
-      subject: 'Vérification de votre compte SMART TRIP',
-      html: `
+    await sendBrevoEmail(
+      email,
+      'Vérification de votre compte SMART TRIP',
+      `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">Bienvenue sur SMART TRIP, ${firstName} !</h2>
           <p>Pour activer votre compte, veuillez utiliser le code de vérification suivant :</p>
@@ -47,8 +67,9 @@ exports.sendVerificationEmail = async (email, code, firstName) => {
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
           <p style="color: #6b7280; font-size: 12px;">SMART TRIP - Votre comparateur de vols intelligent</p>
         </div>
-      `
-    });
+      `,
+      firstName
+    );
     logger.info(`Email de vérification envoyé à ${email} via Brevo API`);
     return true;
   } catch (error) {
@@ -62,10 +83,10 @@ exports.sendPasswordResetEmail = async (email, token, firstName) => {
   try {
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${token}`;
 
-    await sendBrevoEmail({
-      to: email,
-      subject: 'Réinitialisation de votre mot de passe SMART TRIP',
-      html: `
+    await sendBrevoEmail(
+      email,
+      'Réinitialisation de votre mot de passe SMART TRIP',
+      `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">Réinitialisation de mot de passe</h2>
           <p>Bonjour ${firstName},</p>
@@ -82,8 +103,9 @@ exports.sendPasswordResetEmail = async (email, token, firstName) => {
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
           <p style="color: #6b7280; font-size: 12px;">SMART TRIP - Votre comparateur de vols intelligent</p>
         </div>
-      `
-    });
+      `,
+      firstName
+    );
     logger.info(`Email de réinitialisation envoyé à ${email} via Brevo API`);
     return true;
   } catch (error) {
