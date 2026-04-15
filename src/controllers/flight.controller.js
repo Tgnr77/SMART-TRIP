@@ -21,13 +21,36 @@ exports.testAmadeusAuth = async (req, res) => {
 // Diagnostic : test de recherche Amadeus directe
 exports.testAmadeusSearch = async (req, res) => {
   const { origin = "MAD", destination = "BCN", departureDate = "2026-05-01" } = req.query;
+  
+  // Test direct via axios (bypasse searchFlights pour voir l'erreur brute)
   try {
-    const results = await amadeusService.searchFlights({
-      origin, destination, departureDate, adults: 1, travelClass: "ECONOMY", nonStop: false, maxResults: 5,
-    });
-    res.json({ success: true, count: results.length, isMock: results[0]?.source === "amadeus-mock", first: results[0] || null });
-  } catch (error) {
-    res.json({ success: false, error: error.message });
+    amadeusService.accessToken = null;
+    amadeusService.tokenExpiry = null;
+    const token = await amadeusService.getAccessToken();
+    const axios = require("axios");
+
+    const params = { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, max: 5 };
+    
+    try {
+      const r = await axios.get(
+        `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
+        { headers: { Authorization: `Bearer ${token}` }, params }
+      );
+      res.json({ success: true, count: r.data.data?.length, isMock: false, tokenLength: token.length });
+    } catch (apiErr) {
+      res.json({
+        success: false,
+        isMock: true,
+        tokenLength: token.length,
+        httpStatus: apiErr.response?.status,
+        amadeusCode: apiErr.response?.data?.errors?.[0]?.code,
+        amadeusTitle: apiErr.response?.data?.errors?.[0]?.title,
+        amadeusDetail: apiErr.response?.data?.errors?.[0]?.detail,
+        paramsUsed: params,
+      });
+    }
+  } catch (authErr) {
+    res.json({ success: false, authError: authErr.message });
   }
 };
 
