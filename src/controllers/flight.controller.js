@@ -34,35 +34,44 @@ exports.testAmadeusAuth = async (req, res) => {
 exports.testAmadeusSearch = async (req, res) => {
   const { origin = "CDG", destination = "LHR", departureDate = "2026-06-01" } = req.query;
   try {
+    // Force un token frais
+    amadeusService.accessToken = null;
+    amadeusService.tokenExpiry = null;
     const token = await amadeusService.getAccessToken();
     const axios = require("axios");
-    const response = await axios.get(
-      `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        params: {
-          originLocationCode: origin,
-          destinationLocationCode: destination,
-          departureDate,
-          adults: 1,
-          travelClass: "ECONOMY",
-          nonStop: false,
-          max: 10,
-        },
-      }
-    );
-    res.json({
-      success: true,
-      count: response.data.data?.length || 0,
-      firstFlight: response.data.data?.[0] || null,
-    });
+
+    // Test 1 : minimal (required only)
+    let result1, result2;
+    try {
+      const r1 = await axios.get(
+        `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1 },
+        }
+      );
+      result1 = { success: true, count: r1.data.data?.length };
+    } catch (e) {
+      result1 = { success: false, status: e.response?.status, error: e.response?.data?.errors?.[0] };
+    }
+
+    // Test 2 : avec travelClass et nonStop
+    try {
+      const r2 = await axios.get(
+        `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, travelClass: "ECONOMY", nonStop: false, max: 10 },
+        }
+      );
+      result2 = { success: true, count: r2.data.data?.length };
+    } catch (e) {
+      result2 = { success: false, status: e.response?.status, error: e.response?.data?.errors?.[0] };
+    }
+
+    res.json({ tokenLength: token?.length, minimal: result1, withOptions: result2 });
   } catch (error) {
-    res.json({
-      success: false,
-      error: error.message,
-      httpStatus: error.response?.status,
-      amadeusError: error.response?.data,
-    });
+    res.json({ success: false, error: error.message, amadeusError: error.response?.data });
   }
 };
 
