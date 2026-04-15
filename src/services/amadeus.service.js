@@ -64,13 +64,17 @@ class AmadeusService {
       departureDate,
       returnDate,
       adults = 1,
-      travelClass = "ECONOMY",
+      travelClass,
+      cabinClass,
       nonStop = false,
-      maxResults = 50,
+      maxResults = 250,
     } = searchParams;
 
+    // Résoudre la classe de voyage (le frontend Android envoie cabinClass)
+    const resolvedClass = (travelClass || cabinClass || "ECONOMY").toUpperCase();
+
     logger.info("=== AMADEUS API REQUEST ===");
-    logger.info(`Search: ${origin} -> ${destination} on ${departureDate}`);
+    logger.info(`Search: ${origin} -> ${destination} on ${departureDate}, class: ${resolvedClass}`);
 
     try {
       const token = await this.getAccessToken();
@@ -79,11 +83,15 @@ class AmadeusService {
         originLocationCode: origin,
         destinationLocationCode: destination,
         departureDate,
-        adults,
-        travelClass: (travelClass || "ECONOMY").toUpperCase(),
-        nonStop,
-        max: Math.min(maxResults, 50),
+        adults: Number(adults),
+        travelClass: resolvedClass,
+        max: maxResults,
       };
+
+      // nonStop uniquement si explicitement true (évite rejets Amadeus avec false)
+      if (nonStop === true || nonStop === "true") {
+        params.nonStop = true;
+      }
 
       if (returnDate) {
         params.returnDate = returnDate;
@@ -107,8 +115,7 @@ class AmadeusService {
       logger.error(`Status: ${error.response?.status}`);
       logger.error(`Data: ${JSON.stringify(error.response?.data)}`);
       logger.error(`Message: ${error.message}`);
-      // Fallback vers les données de démonstration
-      logger.warn("Falling back to demo data (Amadeus test env limitation)");
+      logger.warn("Falling back to demo data");
       return this.getMockFlightData(searchParams);
     }
   }
