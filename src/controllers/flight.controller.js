@@ -47,8 +47,12 @@ exports.testAmadeusSearch = async (req, res) => {
   } catch (error) {
     res.json({
       success: false,
-      error: error.message,
-      sdkError: error.description || error.response?.result,
+      errorString: String(error),
+      message: error.message,
+      description: error.description,
+      statusCode: error.statusCode || error.response?.statusCode,
+      result: error.response?.result,
+      errorKeys: Object.keys(error || {}),
     });
   }
 };
