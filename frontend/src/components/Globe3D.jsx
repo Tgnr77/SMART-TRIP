@@ -65,11 +65,45 @@ const DestinationMarker = ({ position, isSelected }) => {
   );
 };
 
+// ─── Marqueur de destination suggérée (résultats inspiration) ────────────────
+const HighlightMarker = ({ position, isTopResult = false }) => {
+  const ref = useRef();
+  useFrame(({ clock }) => {
+    if (ref.current) {
+      const t = clock.getElapsedTime();
+      ref.current.material.opacity = isTopResult
+        ? 0.7 + Math.sin(t * 3) * 0.25
+        : 0.5 + Math.sin(t * 2 + 1) * 0.2;
+    }
+  });
+  const normal = position.clone().normalize();
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1), normal
+  );
+  const color = isTopResult ? "#f59e0b" : "#22d3ee";
+  const size = isTopResult ? 0.07 : 0.05;
+  return (
+    <group position={position} quaternion={quaternion}>
+      {/* Halo */}
+      <mesh position={[0, 0, 0.01]}>
+        <ringGeometry args={[size, size * 1.7, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Point central */}
+      <mesh ref={ref} position={[0, 0, 0.02]}>
+        <circleGeometry args={[size, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.7} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+};
+
 const Globe3D = ({
   onCountryClick,
   inspirationMode = false,
   zoomToDestination = null,
   onZoomComplete,
+  highlightedDestinations = [],   // [{ city, isTop }]
 }) => {
   const globeGroupRef = useRef(); // Groupe qui contient le globe ET les marqueurs
   const meshRef = useRef();
@@ -277,6 +311,12 @@ const Globe3D = ({
             zoomToDestination &&
             dest.city.toLowerCase() === zoomToDestination.toLowerCase();
 
+          // Marqueur de surbrillance depuis l'inspiration
+          const highlightInfo = highlightedDestinations.find(
+            (h) => h.city.toLowerCase() === dest.city.toLowerCase()
+          );
+          const showHighlight = highlightInfo && !isSelected;
+
           return (
             <group key={index}>
               {/* Marqueur logique pour le raycasting et le zoom */}
@@ -289,12 +329,20 @@ const Globe3D = ({
                 <meshBasicMaterial
                   transparent
                   opacity={0}
-                  visible={false} // Invisible par défaut
+                  visible={false}
                 />
               </mesh>
 
-              {/* Marqueur visuel personnalisé */}
+              {/* Marqueur visuel sélectionné (pin rose) */}
               <DestinationMarker position={position} isSelected={isSelected} />
+
+              {/* Marqueur visuel inspiration (halo cyan/amber) */}
+              {showHighlight && (
+                <HighlightMarker
+                  position={position}
+                  isTopResult={highlightInfo.isTop === true}
+                />
+              )}
             </group>
           );
         })}

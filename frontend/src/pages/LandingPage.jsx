@@ -177,13 +177,10 @@ const LandingPage = () => {
 
           {/* Bouton Mode Inspiration */}
           <button
-            onClick={handleInspirationMode}
-            disabled={isInspirationMode}
-            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:from-gray-600 disabled:to-gray-700 text-white font-semibold rounded-xl shadow-xl transition-all duration-300 transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={() => navigate('/inspiration')}
+            className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
           >
-            <Brain
-              className={`h-5 w-5 ${isInspirationMode ? "animate-spin" : ""}`}
-            />
+            <Brain className="h-5 w-5" />
             <span>Mode Inspiration</span>
           </button>
 

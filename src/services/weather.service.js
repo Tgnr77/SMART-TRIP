@@ -1,5 +1,4 @@
 const axios = require('axios');
-const logger = require('../utils/logger');
 
 const API_KEY = process.env.OPENWEATHER_API_KEY;
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
@@ -32,7 +31,7 @@ const getCurrentWeather = async (lat, lon) => {
       weatherType: response.data.weather[0].main // Clear, Clouds, Rain, etc.
     };
   } catch (error) {
-    logger.error('Erreur récupération météo:', error.message);
+    console.error('Erreur récupération météo:', error.message);
     throw error;
   }
 };
@@ -40,23 +39,78 @@ const getCurrentWeather = async (lat, lon) => {
 /**
  * Filtrer les destinations selon les critères météo
  * @param {Array} destinations - Liste des destinations avec lat/lon
- * @param {Object} criteria - Critères de filtrage (weather, temperature)
- * @returns {Promise<Array>} Destinations filtrées avec données météo
- *
- * Valeurs attendues (alignées avec l'app Android) :
- *   weather     : 'sunny' | 'cloudy' | 'rainy' | 'snowy' | 'stormy'
- *   temperature : 'tropical' | 'hot' | 'mild' | 'cool' | 'cold'
+ * @param {Object} criteria - Critères de filtrage issus de l'API OpenWeatherMap
+ *   weather     : 'sunny' | 'cloudy' | 'rainy' | 'snowy' | 'stormy' | ''
+ *   temperature : 'tropical' | 'hot' | 'mild' | 'cool' | 'cold' | ''
+ *   humidity    : 'dry' | 'normal' | 'humid' | ''
+ *   wind        : 'calm' | 'moderate' | 'windy' | ''
+ * @returns {Promise<Array>} Destinations filtrées avec les données météo
  */
+/**
+ * Calcule un score de correspondance pour une destination selon les critères
+ * Retourne un nombre entre 0 et 4 (un point par critère satisfait)
+ */
+function scoreDestination(dest, criteria) {
+  const { weather } = dest;
+  let score = 0;
+  let total = 0;
+
+  if (criteria.weather) {
+    total++;
+    const wt = weather.weatherType;
+    // Groupes élargis : 'sunny' inclut Clear + Haze; 'cloudy' inclut Clouds + Mist + Fog + Smoke
+    const sunnyTypes   = ['Clear', 'Haze', 'Smoke'];
+    const cloudyTypes  = ['Clouds', 'Mist', 'Fog', 'Dust', 'Sand', 'Ash', 'Squall'];
+    const rainyTypes   = ['Rain', 'Drizzle'];
+    const snowyTypes   = ['Snow'];
+    const stormyTypes  = ['Thunderstorm'];
+    if (criteria.weather === 'sunny'  && sunnyTypes.includes(wt))  score++;
+    if (criteria.weather === 'cloudy' && cloudyTypes.includes(wt)) score++;
+    if (criteria.weather === 'rainy'  && rainyTypes.includes(wt))  score++;
+    if (criteria.weather === 'snowy'  && snowyTypes.includes(wt))  score++;
+    if (criteria.weather === 'stormy' && stormyTypes.includes(wt)) score++;
+  }
+
+  if (criteria.temperature) {
+    total++;
+    const t = weather.temperature;
+    if (criteria.temperature === 'tropical' && t >= 28)                score++;
+    if (criteria.temperature === 'hot'      && t >= 20 && t < 28)      score++;
+    if (criteria.temperature === 'mild'     && t >= 12 && t < 20)      score++;
+    if (criteria.temperature === 'cool'     && t >= 5  && t < 12)      score++;
+    if (criteria.temperature === 'cold'     && t < 5)                  score++;
+  }
+
+  if (criteria.humidity) {
+    total++;
+    const h = weather.humidity;
+    if (criteria.humidity === 'dry'    && h < 40)          score++;
+    if (criteria.humidity === 'normal' && h >= 40 && h <= 70) score++;
+    if (criteria.humidity === 'humid'  && h > 70)          score++;
+  }
+
+  if (criteria.wind) {
+    total++;
+    const kmh = weather.windSpeed * 3.6;
+    if (criteria.wind === 'calm'     && kmh < 10)            score++;
+    if (criteria.wind === 'moderate' && kmh >= 10 && kmh < 30) score++;
+    if (criteria.wind === 'windy'    && kmh >= 30)           score++;
+  }
+
+  return { score, total };
+}
+
 const filterDestinationsByWeather = async (destinations, criteria) => {
-  // Limiter à 50 destinations pour obtenir plus de variété
-  const sample = destinations.sort(() => 0.5 - Math.random()).slice(0, 50);
-  
-  const weatherPromises = sample.map(async (dest) => {
+  // Shuffler toutes les destinations pour la variété (pas de troncature)
+  const shuffled = [...destinations].sort(() => 0.5 - Math.random());
+
+  // Récupérer la météo pour toutes les destinations en parallèle
+  const weatherPromises = shuffled.map(async (dest) => {
     try {
       const weather = await getCurrentWeather(dest.lat, dest.lon);
       return { ...dest, weather };
     } catch (error) {
-      logger.error(`Erreur météo pour ${dest.city}:`, error.message);
+      console.error(`Erreur météo pour ${dest.city}:`, error.message);
       return null;
     }
   });
@@ -64,52 +118,30 @@ const filterDestinationsByWeather = async (destinations, criteria) => {
   const destinationsWithWeather = (await Promise.all(weatherPromises))
     .filter(d => d !== null);
 
-  // Si aucun critère, retourner toutes les destinations
-  if (!criteria.weather && !criteria.temperature) {
-    return destinationsWithWeather;
+  // Si aucun critère, retourner toutes les destinations mélangées
+  const hasAnyCriteria = criteria.weather || criteria.temperature ||
+                         criteria.humidity || criteria.wind;
+  if (!hasAnyCriteria) return destinationsWithWeather;
+
+  // Scorer chaque destination et trier par score décroissant
+  const scored = destinationsWithWeather.map(dest => {
+    const { score, total } = scoreDestination(dest, criteria);
+    return { ...dest, _score: score, _total: total };
+  }).sort((a, b) => b._score - a._score);
+
+  // Garder uniquement les destinations qui matchent TOUS les critères actifs
+  const perfectMatches = scored.filter(d => d._score === d._total && d._total > 0);
+
+  // Si suffisamment de résultats parfaits (≥ 5), les retourner
+  if (perfectMatches.length >= 5) {
+    return perfectMatches.map(({ _score, _total, ...d }) => d);
   }
 
-  return destinationsWithWeather.filter(dest => {
-    const { weather } = dest;
+  // Sinon : retourner les meilleurs scores disponibles (au moins score > 0 si possible)
+  const partialMatches = scored.filter(d => d._score > 0);
+  const fallback = partialMatches.length >= 3 ? partialMatches : scored;
 
-    // ── Filtre météo — valeurs alignées avec l'app Android ───────────────
-    if (criteria.weather) {
-      const wType = weather.weatherType; // Clear, Clouds, Rain, Drizzle, Snow, Thunderstorm…
-      switch (criteria.weather) {
-        case 'sunny':
-          // Clair ou légèrement nuageux
-          if (!['Clear', 'Clouds'].includes(wType)) return false;
-          if (wType === 'Clouds' && weather.description && weather.description.toLowerCase().includes('overcast')) return false;
-          break;
-        case 'cloudy':
-          if (!['Clouds', 'Mist', 'Fog', 'Haze', 'Dust', 'Sand', 'Smoke'].includes(wType)) return false;
-          break;
-        case 'rainy':
-          if (!['Rain', 'Drizzle', 'Squall'].includes(wType)) return false;
-          break;
-        case 'snowy':
-          if (wType !== 'Snow') return false;
-          break;
-        case 'stormy':
-          if (!['Thunderstorm', 'Tornado'].includes(wType)) return false;
-          break;
-      }
-    }
-
-    // ── Filtre température — valeurs alignées avec l'app Android ─────────
-    if (criteria.temperature) {
-      const t = weather.temperature;
-      switch (criteria.temperature) {
-        case 'tropical': if (t < 28) return false; break;
-        case 'hot':      if (t < 20 || t >= 28) return false; break;
-        case 'mild':     if (t < 12 || t >= 20) return false; break;
-        case 'cool':     if (t < 5  || t >= 12) return false; break;
-        case 'cold':     if (t >= 5) return false; break;
-      }
-    }
-
-    return true;
-  });
+  return fallback.slice(0, 15).map(({ _score, _total, ...d }) => d);
 };
 
 module.exports = {

@@ -13,7 +13,7 @@ async function deleteUnverifiedAccounts() {
     const result = await db.query(
       `DELETE FROM users 
        WHERE email_verified = FALSE 
-       AND created_at < NOW() - INTERVAL '15 minutes'
+       AND created_at < NOW() - INTERVAL '3 minutes'
        RETURNING email`,
     );
 
@@ -36,12 +36,12 @@ function startCleanupScheduler() {
   // Exécution immédiate au démarrage
   deleteUnverifiedAccounts();
 
-  // Puis toutes les 5 minutes
+  // Puis toutes les minutes
   setInterval(async () => {
     await deleteUnverifiedAccounts();
-  }, 5 * 60 * 1000); // 5 minutes
+  }, 60 * 1000); // 1 minute
 
-  logger.info('🕐 Planificateur de nettoyage des comptes démarré (toutes les 5 minutes)');
+  logger.info('🕐 Planificateur de nettoyage des comptes démarré (suppression après 3 min sans vérification)');
 }
 
 module.exports = {

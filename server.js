@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 const logger = require("./src/utils/logger");
 const db = require("./src/database/connection");
 const cleanupService = require("./src/services/cleanup.service");
+const runMigrations = require("./src/database/migrate");
 
 // Import des routes
 const authRoutes = require("./src/routes/auth.routes");
@@ -135,15 +136,13 @@ app.use((err, req, res, next) => {
 
 // Démarrage du serveur avec migrations automatiques
 async function startServer() {
-  // Exécuter les migrations en production (Railway)
-  if (process.env.NODE_ENV === 'production') {
-    try {
-      const runMigrations = require('./src/database/migrate');
-      await runMigrations();
-    } catch (err) {
-      logger.error('Migrations échouées, arrêt:', err.message);
-      process.exit(1);
-    }
+  // Exécuter les migrations au démarrage
+  try {
+    logger.info("🔄 Vérification des migrations...");
+    await runMigrations();
+  } catch (err) {
+    logger.error('Migrations échouées, arrêt:', err.message);
+    process.exit(1);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

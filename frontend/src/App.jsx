@@ -15,6 +15,7 @@ import SearchHistoryPage from "./pages/SearchHistoryPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import InspirationGlobePage from "./pages/InspirationGlobePage";
 
 function App() {
   return (
@@ -25,6 +26,8 @@ function App() {
             <Routes>
               {/* Landing Page sans Layout */}
               <Route path="/" element={<LandingPage />} />
+              {/* Mode Inspiration - plein écran sans Layout */}
+              <Route path="/inspiration" element={<InspirationGlobePage />} />
               
               {/* Pages avec Layout */}
               <Route path="/home" element={<Layout><HomePage /></Layout>} />
