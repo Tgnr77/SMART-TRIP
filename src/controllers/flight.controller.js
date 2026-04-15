@@ -41,37 +41,34 @@ exports.testAmadeusAuth = async (req, res) => {
 
 // Diagnostic : test de recherche Amadeus directe
 exports.testAmadeusSearch = async (req, res) => {
-  const { origin = "MAD", destination = "BCN", departureDate = "2026-05-01" } = req.query;
+  const { origin = "NCE", destination = "MAD", departureDate = "2026-04-28" } = req.query;
   
-  // Test direct via axios (bypasse searchFlights pour voir l'erreur brute)
   try {
     amadeusService.accessToken = null;
     amadeusService.tokenExpiry = null;
     const token = await amadeusService.getAccessToken();
     const axios = require("axios");
+    const base = process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com";
 
-    const params = { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, max: 5 };
-    
-    try {
-      const r = await axios.get(
-        `${process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com"}/v2/shopping/flight-offers`,
-        { headers: { Authorization: `Bearer ${token}` }, params }
-      );
-      res.json({ success: true, count: r.data.data?.length, isMock: false, tokenLength: token.length });
-    } catch (apiErr) {
-      res.json({
-        success: false,
-        isMock: true,
-        tokenLength: token.length,
-        httpStatus: apiErr.response?.status,
-        amadeusCode: apiErr.response?.data?.errors?.[0]?.code,
-        amadeusTitle: apiErr.response?.data?.errors?.[0]?.title,
-        amadeusDetail: apiErr.response?.data?.errors?.[0]?.detail,
-        paramsUsed: params,
-      });
+    const tests = [
+      { label: "minimal", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1 } },
+      { label: "with_max5", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, max: 5 } },
+      { label: "with_class", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, travelClass: "ECONOMY" } },
+      { label: "with_nonstop_false", params: { originLocationCode: origin, destinationLocationCode: destination, departureDate, adults: 1, nonStop: false } },
+    ];
+
+    const results = {};
+    for (const t of tests) {
+      try {
+        const r = await axios.get(`${base}/v2/shopping/flight-offers`, { headers: { Authorization: `Bearer ${token}` }, params: t.params });
+        results[t.label] = { ok: true, count: r.data.data?.length };
+      } catch (e) {
+        results[t.label] = { ok: false, status: e.response?.status, code: e.response?.data?.errors?.[0]?.code };
+      }
     }
+    res.json({ results });
   } catch (authErr) {
-    res.json({ success: false, authError: authErr.message });
+    res.json({ authError: authErr.message });
   }
 };
 
