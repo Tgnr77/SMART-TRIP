@@ -1,6 +1,29 @@
 const db = require("../database/connection");
 const logger = require("../utils/logger");
 const flightAggregator = require("../services/flight-aggregator.service");
+const amadeusService = require("../services/amadeus.service");
+
+// Diagnostic : test de la connexion Amadeus (sans auth)
+exports.testAmadeusAuth = async (req, res) => {
+  const keyPrefix = process.env.AMADEUS_API_KEY
+    ? process.env.AMADEUS_API_KEY.substring(0, 8) + "..."
+    : "(non défini)";
+  try {
+    const token = await amadeusService.getAccessToken();
+    res.json({
+      success: true,
+      message: "Amadeus auth OK",
+      keyPrefix,
+      tokenLength: token?.length,
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      keyPrefix,
+    });
+  }
+};
 
 // Recherche intelligente de vols avec IA
 exports.searchFlights = async (req, res) => {

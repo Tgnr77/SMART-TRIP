@@ -41,7 +41,16 @@ class FlightAggregatorService {
       logger.info(`Filtered to ${passengerFlights.length} passenger flights (excluded ${allFlights.length - passengerFlights.length} freight flights)`);
 
       if (passengerFlights.length === 0) {
-        throw new Error("Aucun vol trouvé sur les sources disponibles");
+        logger.warn("No flights found — returning empty result");
+        return {
+          flights: [],
+          meta: {
+            totalResults: 0,
+            sources: ["amadeus"],
+            searchTime: Date.now() - startTime,
+            timestamp: new Date().toISOString(),
+          },
+        };
       }
 
       // 3. Dédupliquer les vols similaires (désactivé temporairement pour garder tous les vols)
