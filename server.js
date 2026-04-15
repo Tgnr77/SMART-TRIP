@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(compression());
 
-// CORS - Autorise les ports 5173 et 5174 pour le frontend
+// CORS - Autorise le frontend web + les apps mobiles (Android/iOS n'envoient pas d'origin)
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -37,7 +37,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Permet les requêtes sans origin (ex: Postman, curl)
+      // Pas d'origin = app mobile (Android/iOS) ou Postman → toujours autorisé
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -130,17 +130,29 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Démarrage du serveur
-app.listen(PORT, () => {
-  logger.info(`🚀 Serveur SMART TRIP démarré sur http://localhost:${PORT}`);
-  logger.info(`📊 Environnement: ${process.env.NODE_ENV}`);
+// Démarrage du serveur avec migrations automatiques
+async function startServer() {
+  // Exécuter les migrations en production (Railway)
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const runMigrations = require('./src/database/migrate');
+      await runMigrations();
+    } catch (err) {
+      logger.error('Migrations échouées, arrêt:', err.message);
+      process.exit(1);
+    }
+  }
 
-  // Test de connexion à la base de données
-  db.testConnection();
+  app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`🚀 Serveur SMART TRIP démarré sur http://0.0.0.0:${PORT}`);
+    logger.info(`📊 Environnement: ${process.env.NODE_ENV}`);
 
-  // Démarrer le nettoyage automatique des comptes non vérifiés
-  cleanupService.startCleanupScheduler();
-});
+    db.testConnection();
+    cleanupService.startCleanupScheduler();
+  });
+}
+
+startServer();
 
 // Gestion de l'arrêt gracieux
 process.on("SIGTERM", () => {

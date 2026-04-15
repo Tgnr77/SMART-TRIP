@@ -93,7 +93,10 @@ async function runMigrations() {
       logger.info(`   - ${row.table_name}`);
     });
 
-    process.exit(0);
+    // process.exit uniquement si exécuté directement (pas importé comme module)
+    if (require.main === module) {
+      process.exit(0);
+    }
   } catch (error) {
     logger.error("❌ Erreur lors des migrations:", error.message);
     logger.error(error.stack);
