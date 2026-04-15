@@ -3,23 +3,28 @@ const logger = require("../utils/logger");
 const flightAggregator = require("../services/flight-aggregator.service");
 const amadeusService = require("../services/amadeus.service");
 
-// Diagnostic : test de la connexion Amadeus (sans auth)
+// Diagnostic : test de la connexion Amadeus (force un nouveau token, ignore le cache)
 exports.testAmadeusAuth = async (req, res) => {
   const keyPrefix = process.env.AMADEUS_API_KEY
     ? process.env.AMADEUS_API_KEY.substring(0, 8) + "..."
     : "(non défini)";
   try {
+    // Forcer un nouveau token (bypass le cache)
+    amadeusService.accessToken = null;
+    amadeusService.tokenExpiry = null;
     const token = await amadeusService.getAccessToken();
     res.json({
       success: true,
-      message: "Amadeus auth OK",
+      message: "Amadeus auth OK (fresh token)",
       keyPrefix,
       tokenLength: token?.length,
+      tokenPrefix: token?.substring(0, 10) + "...",
     });
   } catch (error) {
     res.json({
       success: false,
       error: error.message,
+      amadeusDetail: error.response?.data,
       keyPrefix,
     });
   }
