@@ -9,51 +9,25 @@ exports.testAmadeusAuth = async (req, res) => {
     ? process.env.AMADEUS_API_KEY.substring(0, 8) + "..."
     : "(non défini)";
   try {
-    // Forcer un nouveau token (bypass le cache)
     amadeusService.accessToken = null;
     amadeusService.tokenExpiry = null;
     const token = await amadeusService.getAccessToken();
-    res.json({
-      success: true,
-      message: "Amadeus auth OK (fresh token)",
-      keyPrefix,
-      tokenLength: token?.length,
-      tokenPrefix: token?.substring(0, 10) + "...",
-    });
+    res.json({ success: true, message: "Amadeus auth OK", keyPrefix, tokenLength: token?.length });
   } catch (error) {
-    res.json({
-      success: false,
-      error: error.message,
-      amadeusDetail: error.response?.data,
-      keyPrefix,
-    });
+    res.json({ success: false, error: error.message, amadeusDetail: error.response?.data, keyPrefix });
   }
 };
 
-// Diagnostic : test de recherche Amadeus directe (retourne l'erreur brute au lieu du mock)
+// Diagnostic : test de recherche Amadeus directe
 exports.testAmadeusSearch = async (req, res) => {
   const { origin = "MAD", destination = "BCN", departureDate = "2026-05-01" } = req.query;
   try {
-    // Force cache clear + test via SDK
-    amadeusService.accessToken = null;
-    amadeusService.tokenExpiry = null;
-
-    const offers = await amadeusService.searchFlights({
-      origin, destination, departureDate, adults: 1,
-      travelClass: "ECONOMY", nonStop: false, maxResults: 5,
+    const results = await amadeusService.searchFlights({
+      origin, destination, departureDate, adults: 1, travelClass: "ECONOMY", nonStop: false, maxResults: 5,
     });
-
-    res.json({ success: true, count: offers.length, first: offers[0] || null });
+    res.json({ success: true, count: results.length, isMock: results[0]?.source === "amadeus-mock", first: results[0] || null });
   } catch (error) {
-    res.json({
-      success: false,
-      code: error.code,
-      description: error.description,
-      statusCode: error.response?.statusCode,
-      result: error.response?.result,
-      body: error.response?.body,
-      errorString: String(error),
-    });
+    res.json({ success: false, error: error.message });
   }
 };
 
