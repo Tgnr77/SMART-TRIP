@@ -283,151 +283,104 @@ class AmadeusService {
   }
 
   /**
-   * Données de test (quand API non configurée)
+   * Données de démonstration dynamiques (utilisées quand l'API sandbox n'est pas encore provisionnée)
    */
   getMockFlightData(searchParams) {
-    const basePrice = 150 + Math.random() * 500;
+    const { origin, destination, departureDate, returnDate } = searchParams;
 
-    return [
-      {
-        id: "mock-1",
-        source: "amadeus-mock",
-        price: {
-          total: basePrice,
-          currency: "EUR",
-          perAdult: basePrice,
-        },
-        outbound: {
-          departure: {
-            airport: searchParams.origin,
-            time: `${searchParams.departureDate}T08:00:00`,
-          },
-          arrival: {
-            airport: searchParams.destination,
-            time: `${searchParams.departureDate}T12:00:00`,
-          },
-          duration: "PT4H",
-          stops: 0,
-          segments: [
-            {
-              carrier: "AF",
-              flightNumber: "1234",
-              aircraft: "320",
-              departure: {
-                airport: searchParams.origin,
-                time: `${searchParams.departureDate}T08:00:00`,
-              },
-              arrival: {
-                airport: searchParams.destination,
-                time: `${searchParams.departureDate}T12:00:00`,
-              },
-              duration: "PT4H",
-            },
-          ],
-        },
-        inbound: searchParams.returnDate
-          ? {
-              departure: {
-                airport: searchParams.destination,
-                time: `${searchParams.returnDate}T14:00:00`,
-              },
-              arrival: {
-                airport: searchParams.origin,
-                time: `${searchParams.returnDate}T18:00:00`,
-              },
-              duration: "PT4H",
-              stops: 0,
-              segments: [
-                {
-                  carrier: "AF",
-                  flightNumber: "5678",
-                  aircraft: "320",
-                  departure: {
-                    airport: searchParams.destination,
-                    time: `${searchParams.returnDate}T14:00:00`,
-                  },
-                  arrival: {
-                    airport: searchParams.origin,
-                    time: `${searchParams.returnDate}T18:00:00`,
-                  },
-                  duration: "PT4H",
-                },
-              ],
-            }
-          : null,
-        validatingAirlineCodes: ["AF"],
-        travelerPricings: [],
-      },
-      {
-        id: "mock-2",
-        source: "amadeus-mock",
-        price: {
-          total: basePrice + 80,
-          currency: "EUR",
-          perAdult: basePrice + 80,
-        },
-        outbound: {
-          departure: {
-            airport: searchParams.origin,
-            time: `${searchParams.departureDate}T06:30:00`,
-          },
-          arrival: {
-            airport: searchParams.destination,
-            time: `${searchParams.departureDate}T10:45:00`,
-          },
-          duration: "PT4H15M",
-          stops: 0,
-          segments: [
-            {
-              carrier: "LH",
-              flightNumber: "9876",
-              aircraft: "321",
-              departure: {
-                airport: searchParams.origin,
-                time: `${searchParams.departureDate}T06:30:00`,
-              },
-              arrival: {
-                airport: searchParams.destination,
-                time: `${searchParams.departureDate}T10:45:00`,
-              },
-              duration: "PT4H15M",
-            },
-          ],
-        },
-        inbound: searchParams.returnDate
-          ? {
-              departure: {
-                airport: searchParams.destination,
-                time: `${searchParams.returnDate}T16:00:00`,
-              },
-              arrival: {
-                airport: searchParams.origin,
-                time: `${searchParams.returnDate}T20:15:00`,
-              },
-              duration: "PT4H15M",
-              stops: 0,
-              segments: [
-                {
-                  carrier: "LH",
-                  flightNumber: "5432",
-                  aircraft: "321",
-                  departure: {
-                    airport: searchParams.destination,
-                    time: `${searchParams.returnDate}T16:00:00`,
-                  },
-                  arrival: {
-                    airport: searchParams.origin,
-                    time: `${searchParams.returnDate}T20:15:00`,
-                  },
-                  duration: "PT4H15M",
-                },
-              ],
-            }
-          : null,
-        validatingAirlineCodes: ["LH"],
-        travelerPricings: [],
-      },
+    // Base prix selon le type de route (court/moyen/long courrier estimé)
+    const knownLongHaul = ["JFK","LAX","ORD","DFW","MIA","SFO","YYZ","GRU","GIG","EZE","NRT","HND","ICN","PEK","PVG","HKG","SIN","BKK","DXB","DOH","AUH","SYD","MEL","JNB","CPT","LOS","NBO"];
+    const isLongHaul = knownLongHaul.includes(destination) || knownLongHaul.includes(origin);
+    const baseFare = isLongHaul ? 420 : 110;
+    const spread = isLongHaul ? 600 : 200;
+    const baseDuration = isLongHaul ? "PT9H30M" : "PT2H15M";
+
+    const airlines = [
+      { code: "AF", name: "Air France", nums: ["1234","1102","1448","1620"] },
+      { code: "LH", name: "Lufthansa", nums: ["9876","9450","9102","9334"] },
+      { code: "BA", name: "British Airways", nums: ["3021","3145","3267","3089"] },
+      { code: "IB", name: "Iberia", nums: ["6234","6078","6512","6340"] },
+      { code: "U2", name: "easyJet", nums: ["4501","4322","4788","4230"] },
+      { code: "VY", name: "Vueling", nums: ["7120","7345","7089","7567"] },
+      { code: "EK", name: "Emirates", nums: ["5011","5203","5447","5329"] },
+      { code: "KL", name: "KLM", nums: ["8234","8056","8712","8490"] },
     ];
+
+    const departureTimes = ["06:00","07:30","09:15","11:45","13:20","15:00","17:40","19:55"];
+    const durationMinutes = isLongHaul
+      ? [550, 580, 540, 600, 565, 590, 545, 610]
+      : [90, 105, 120, 95, 110, 85, 130, 100];
+
+    const addMinutes = (timeStr, date, minutes) => {
+      const [h, m] = timeStr.split(":").map(Number);
+      const total = h * 60 + m + minutes;
+      const arrH = Math.floor(total / 60) % 24;
+      const arrM = total % 60;
+      const dayOffset = Math.floor((h * 60 + m + minutes) / 1440);
+      const baseDate = new Date(date + "T00:00:00");
+      baseDate.setDate(baseDate.getDate() + dayOffset);
+      const arrDate = baseDate.toISOString().split("T")[0];
+      return `${arrDate}T${String(arrH).padStart(2,"0")}:${String(arrM).padStart(2,"0")}:00`;
+    };
+
+    const toISO = (date, time) => `${date}T${time}:00`;
+
+    const durationStr = (mins) => {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m > 0 ? `PT${h}H${m}M` : `PT${h}H`;
+    };
+
+    return airlines.map((airline, i) => {
+      const price = Math.round(baseFare + Math.random() * spread);
+      const depTime = departureTimes[i];
+      const durMins = durationMinutes[i];
+      const arrTime = addMinutes(depTime, departureDate, durMins);
+      const flightNum = airline.nums[0];
+
+      let inbound = null;
+      if (returnDate) {
+        const retDepTime = departureTimes[(i + 3) % 8];
+        const retArr = addMinutes(retDepTime, returnDate, durMins);
+        inbound = {
+          departure: { airport: destination, time: toISO(returnDate, retDepTime) },
+          arrival: { airport: origin, time: retArr },
+          duration: durationStr(durMins),
+          stops: 0,
+          segments: [{
+            carrier: airline.code,
+            flightNumber: airline.nums[1],
+            aircraft: "320",
+            departure: { airport: destination, time: toISO(returnDate, retDepTime) },
+            arrival: { airport: origin, time: retArr },
+            duration: durationStr(durMins),
+          }],
+        };
+      }
+
+      return {
+        id: `mock-${i + 1}`,
+        source: "amadeus-mock",
+        price: { total: price, currency: "EUR", perAdult: price },
+        outbound: {
+          departure: { airport: origin, time: toISO(departureDate, depTime) },
+          arrival: { airport: destination, time: arrTime },
+          duration: durationStr(durMins),
+          stops: 0,
+          segments: [{
+            carrier: airline.code,
+            flightNumber: flightNum,
+            aircraft: "320",
+            departure: { airport: origin, time: toISO(departureDate, depTime) },
+            arrival: { airport: destination, time: arrTime },
+            duration: durationStr(durMins),
+          }],
+        },
+        inbound,
+        validatingAirlineCodes: [airline.code],
+        travelerPricings: [],
+      };
+    });
   }
 }
 
