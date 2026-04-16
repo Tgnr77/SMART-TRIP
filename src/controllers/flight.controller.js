@@ -42,41 +42,38 @@ exports.testAmadeusAuth = async (req, res) => {
     });
   }
 
-  // Étape 2: Recherche test
+  // Étape 2: Tester plusieurs routes pour trouver ce qui fonctionne
   const token = tokenData.access_token;
-  let searchResult = null;
-  let searchError = null;
-  try {
-    const searchRes = await axios.get(
-      `${baseURL}/v2/shopping/flight-offers`,
-      {
+  const testRoutes = [
+    { from: "MAD", to: "BCN", date: "2026-05-20" },
+    { from: "NCE", to: "CDG", date: "2026-05-20" },
+    { from: "CDG", to: "LHR", date: "2026-05-20" },
+    { from: "CDG", to: "JFK", date: "2026-06-01" },
+  ];
+
+  const results = [];
+  for (const route of testRoutes) {
+    try {
+      const searchRes = await axios.get(`${baseURL}/v2/shopping/flight-offers`, {
         headers: { Authorization: `Bearer ${token}` },
         params: {
-          originLocationCode: "CDG",
-          destinationLocationCode: "JFK",
-          departureDate: "2026-06-01",
+          originLocationCode: route.from,
+          destinationLocationCode: route.to,
+          departureDate: route.date,
           adults: 1,
           max: 3,
         },
-      }
-    );
-    searchResult = { offers: searchRes.data.data?.length || 0 };
-  } catch (err) {
-    searchError = {
-      status: err.response?.status,
-      data: err.response?.data,
-      message: err.message,
-    };
+      });
+      results.push({ route: `${route.from}->${route.to}`, status: "ok", offers: searchRes.data.data?.length || 0 });
+    } catch (err) {
+      results.push({ route: `${route.from}->${route.to}`, status: "error", code: err.response?.data?.errors?.[0]?.code, httpStatus: err.response?.status });
+    }
   }
 
   res.json({
-    success: !searchError,
-    step: searchError ? "search" : "ok",
     apiKey: apiKey?.substring(0, 10) + "...",
     tokenLength: token.length,
-    tokenPreview: token.substring(0, 8) + "...",
-    searchResult,
-    searchError,
+    results,
   });
 };
 
