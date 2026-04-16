@@ -1,6 +1,44 @@
 const db = require("../database/connection");
 const logger = require("../utils/logger");
 const flightAggregator = require("../services/flight-aggregator.service");
+const amadeusService = require("../services/amadeus.service");
+
+// Diagnostic: tester l'authentification Amadeus
+exports.testAmadeusAuth = async (req, res) => {
+  try {
+    const token = await amadeusService.getAccessToken();
+    // Tester aussi une vraie recherche minimale
+    const axios = require("axios");
+    const searchRes = await axios.get(
+      `${amadeusService.baseURL}/v2/shopping/flight-offers`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          originLocationCode: "CDG",
+          destinationLocationCode: "JFK",
+          departureDate: "2026-06-01",
+          adults: 1,
+          max: 3,
+        },
+      }
+    );
+    res.json({
+      success: true,
+      tokenLength: token.length,
+      tokenPreview: token.substring(0, 8) + "...",
+      amadeusOffers: searchRes.data.data?.length || 0,
+      apiKey: process.env.AMADEUS_API_KEY?.substring(0, 8) + "...",
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      amadeusError: error.response?.data,
+      status: error.response?.status,
+      apiKey: process.env.AMADEUS_API_KEY?.substring(0, 8) + "...",
+    });
+  }
+};
 
 // Recherche intelligente de vols avec IA
 exports.searchFlights = async (req, res) => {
