@@ -6,9 +6,6 @@ const {
   optionalAuth,
 } = require("../middleware/auth.middleware");
 
-// Diagnostic Amadeus (temporaire)
-router.get("/test-auth", flightController.testAmadeusAuth);
-
 // Recherche intelligente de vols avec IA (accessible sans authentification)
 router.post("/search", optionalAuth, flightController.searchFlights);
 
