@@ -5,12 +5,50 @@ const amadeusService = require("../services/amadeus.service");
 
 // Diagnostic: tester l'authentification Amadeus
 exports.testAmadeusAuth = async (req, res) => {
+  const axios = require("axios");
+  const apiKey = process.env.AMADEUS_API_KEY;
+  const apiSecret = process.env.AMADEUS_API_SECRET;
+  const baseURL = process.env.AMADEUS_BASE_URL || "https://test.api.amadeus.com";
+
+  // Étape 1: Auth directe pour voir l'erreur brute
+  let tokenData = null;
+  let authError = null;
   try {
-    const token = await amadeusService.getAccessToken();
-    // Tester aussi une vraie recherche minimale
-    const axios = require("axios");
+    const authRes = await axios.post(
+      `${baseURL}/v1/security/oauth2/token`,
+      new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: apiKey,
+        client_secret: apiSecret,
+      }),
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    );
+    tokenData = authRes.data;
+  } catch (err) {
+    authError = {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    };
+  }
+
+  if (authError) {
+    return res.json({
+      success: false,
+      step: "auth",
+      apiKey: apiKey?.substring(0, 10) + "...",
+      apiSecret: apiSecret?.substring(0, 5) + "...",
+      authError,
+    });
+  }
+
+  // Étape 2: Recherche test
+  const token = tokenData.access_token;
+  let searchResult = null;
+  let searchError = null;
+  try {
     const searchRes = await axios.get(
-      `${amadeusService.baseURL}/v2/shopping/flight-offers`,
+      `${baseURL}/v2/shopping/flight-offers`,
       {
         headers: { Authorization: `Bearer ${token}` },
         params: {
@@ -22,22 +60,24 @@ exports.testAmadeusAuth = async (req, res) => {
         },
       }
     );
-    res.json({
-      success: true,
-      tokenLength: token.length,
-      tokenPreview: token.substring(0, 8) + "...",
-      amadeusOffers: searchRes.data.data?.length || 0,
-      apiKey: process.env.AMADEUS_API_KEY?.substring(0, 8) + "...",
-    });
-  } catch (error) {
-    res.json({
-      success: false,
-      error: error.message,
-      amadeusError: error.response?.data,
-      status: error.response?.status,
-      apiKey: process.env.AMADEUS_API_KEY?.substring(0, 8) + "...",
-    });
+    searchResult = { offers: searchRes.data.data?.length || 0 };
+  } catch (err) {
+    searchError = {
+      status: err.response?.status,
+      data: err.response?.data,
+      message: err.message,
+    };
   }
+
+  res.json({
+    success: !searchError,
+    step: searchError ? "search" : "ok",
+    apiKey: apiKey?.substring(0, 10) + "...",
+    tokenLength: token.length,
+    tokenPreview: token.substring(0, 8) + "...",
+    searchResult,
+    searchError,
+  });
 };
 
 // Recherche intelligente de vols avec IA
