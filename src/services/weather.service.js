@@ -58,13 +58,14 @@ function scoreDestination(dest, criteria) {
   if (criteria.weather) {
     total++;
     const wt = weather.weatherType;
-    // Groupes élargis : 'sunny' inclut Clear + Haze; 'cloudy' inclut Clouds + Mist + Fog + Smoke
-    const sunnyTypes   = ['Clear', 'Haze', 'Smoke'];
+    const t  = weather.temperature;
     const cloudyTypes  = ['Clouds', 'Mist', 'Fog', 'Dust', 'Sand', 'Ash', 'Squall'];
     const rainyTypes   = ['Rain', 'Drizzle'];
     const snowyTypes   = ['Snow'];
     const stormyTypes  = ['Thunderstorm'];
-    if (criteria.weather === 'sunny'  && sunnyTypes.includes(wt))  score++;
+    // 'sunny' = ciel dégagé ET température confortable (≥ 16°C)
+    // évite de retourner Paris en hiver avec ciel clair mais 4°C
+    if (criteria.weather === 'sunny'  && ['Clear', 'Haze', 'Smoke'].includes(wt) && t >= 16) score++;
     if (criteria.weather === 'cloudy' && cloudyTypes.includes(wt)) score++;
     if (criteria.weather === 'rainy'  && rainyTypes.includes(wt))  score++;
     if (criteria.weather === 'snowy'  && snowyTypes.includes(wt))  score++;

@@ -40,9 +40,11 @@ router.get("/trends", searchHistoryController.getSearchTrends);
 
 /**
  * @route   GET /api/search/popular
+ * @route   GET /api/search/popular-destinations  (alias pour compatibilité Android)
  * @desc    Obtenir les destinations populaires
  * @access  Public
  */
 router.get("/popular", searchHistoryController.getPopularDestinations);
+router.get("/popular-destinations", searchHistoryController.getPopularDestinations);
 
 module.exports = router;

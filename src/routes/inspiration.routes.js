@@ -80,4 +80,59 @@ router.post('/', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/inspiration/surprise-trending
+ * Retourne des destinations basées sur les tendances de recherche globales.
+ * Si pas assez de données historiques, complète avec des destinations aléatoires.
+ */
+router.get('/surprise-trending', async (req, res) => {
+  try {
+    // Destinations les plus recherchées ces 90 derniers jours
+    let trendRows = [];
+    try {
+      const trendResult = await pool.query(
+        `SELECT destination_code as code, destination_city as city, COUNT(*) as search_count
+         FROM user_search_history
+         WHERE destination_code IS NOT NULL
+           AND searched_at >= NOW() - INTERVAL '90 days'
+         GROUP BY destination_code, destination_city
+         ORDER BY search_count DESC
+         LIMIT 20`
+      );
+      trendRows = trendResult.rows;
+    } catch (_) {}
+
+    // Mapper les codes trending vers les objets DESTINATIONS (avec lat/lon pour météo)
+    const trendCodes = trendRows.map(r => r.code);
+    let trendDests = DESTINATIONS.filter(d => trendCodes.includes(d.code));
+
+    // Compléter avec des destinations populaires hardcodées si pas assez de données
+    const popularFallback = ['DXB','BKK','JFK','BCN','NRT','SIN','SYD','MIA','RAK','DPS','CDG','IST','LHR','GRU','HND'];
+    if (trendDests.length < 8) {
+      const extras = DESTINATIONS.filter(
+        d => popularFallback.includes(d.code) && !trendCodes.includes(d.code)
+      ).slice(0, 12 - trendDests.length);
+      trendDests = [...trendDests, ...extras];
+    }
+
+    // Mélanger légèrement pour éviter l'effet "toujours les mêmes en top"
+    trendDests = trendDests.sort(() => 0.5 - Math.random());
+
+    // Récupérer la météo pour ces destinations
+    const withWeather = await filterDestinationsByWeather(trendDests, {});
+
+    // Ajouter le score tendance à chaque destination
+    const destinations = withWeather.slice(0, 8).map(d => ({
+      ...d,
+      trendScore: trendRows.find(t => t.code === d.code)?.search_count || 0,
+      isTrending: trendCodes.includes(d.code)
+    }));
+
+    res.json({ success: true, destinations, count: destinations.length });
+  } catch (error) {
+    console.error('Erreur surprise-trending:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

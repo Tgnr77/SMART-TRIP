@@ -160,18 +160,48 @@ exports.getSearchTrends = async (req, res) => {
 };
 
 /**
- * Obtenir les destinations populaires
+ * Obtenir les destinations populaires (basé sur l'historique de recherche global)
  */
 exports.getPopularDestinations = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
 
-    const result = await db.query(
-      `SELECT * FROM popular_destinations LIMIT $1`,
-      [limit]
-    );
+    // Requête sur l'historique réel (toutes recherches, connectés + anonymes)
+    let result;
+    try {
+      result = await db.query(
+        `SELECT
+           destination_code,
+           destination_city,
+           COUNT(*) as search_count
+         FROM user_search_history
+         WHERE destination_code IS NOT NULL
+           AND searched_at >= NOW() - INTERVAL '90 days'
+         GROUP BY destination_code, destination_city
+         ORDER BY search_count DESC
+         LIMIT $1`,
+        [limit]
+      );
+    } catch (_) { result = { rows: [] }; }
 
-    res.json({ destinations: result.rows });
+    // Fallback statique si pas encore de données
+    if (!result.rows.length) {
+      const fallback = [
+        { destination_code: 'DXB', destination_city: 'Dubai',      search_count: 0 },
+        { destination_code: 'BKK', destination_city: 'Bangkok',     search_count: 0 },
+        { destination_code: 'JFK', destination_city: 'New York',    search_count: 0 },
+        { destination_code: 'BCN', destination_city: 'Barcelona',   search_count: 0 },
+        { destination_code: 'NRT', destination_city: 'Tokyo',       search_count: 0 },
+        { destination_code: 'SIN', destination_city: 'Singapore',   search_count: 0 },
+        { destination_code: 'SYD', destination_city: 'Sydney',      search_count: 0 },
+        { destination_code: 'MIA', destination_city: 'Miami',       search_count: 0 },
+        { destination_code: 'RAK', destination_city: 'Marrakech',   search_count: 0 },
+        { destination_code: 'DPS', destination_city: 'Bali',        search_count: 0 },
+      ];
+      return res.json({ success: true, destinations: fallback.slice(0, parseInt(limit)) });
+    }
+
+    res.json({ success: true, destinations: result.rows });
   } catch (error) {
     logger.error("Erreur lors de la récupération des destinations populaires:", error);
     res.status(500).json({ error: "Erreur lors de la récupération des destinations" });
